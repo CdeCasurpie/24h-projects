@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BMO Calculator</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        body {
+            min-height: 100vh;
+            background: #a8e6cf;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-family: 'Comic Sans MS', cursive;
+        }
+
+        .calculator {
+            background: #7dd3c0;
+            padding: 25px;
+            border-radius: 15px;
+            border: 3px solid #4a90a4;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+            width: 300px;
+        }
+
+        .bmo-face {
+            text-align: center;
+            margin-bottom: 20px;
+            font-size: 18px;
+            color: #2c5f41;
+            font-weight: bold;
+        }
+
+        .screen {
+            background: #1a1a2e;
+            color: #00ff41;
+            padding: 20px;
+            border-radius: 8px;
+            font-size: 24px;
+            text-align: right;
+            min-height: 60px;
+            border: 2px solid #16213e;
+            margin-bottom: 20px;
+            font-family: 'Courier New', monospace;
+        }
+
+        .buttons {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 10px;
+        }
+
+        .btn {
+            padding: 15px;
+            font-size: 18px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-family: inherit;
+            font-weight: bold;
+            transition: transform 0.1s ease;
+        }
+
+        .btn:hover {
+            transform: scale(1.05);
+        }
+
+        .btn:active {
+            transform: scale(0.95);
+        }
+
+        .btn.number {
+            background: #4a90a4;
+            color: white;
+        }
+
+        .btn.operator {
+            background: #ff6b6b;
+            color: white;
+        }
+
+        .btn.equals {
+            background: #00ff41;
+            color: #1a1a2e;
+            grid-column: span 2;
+        }
+
+        .btn.clear {
+            background: #ffa726;
+            color: white;
+        }
+    </style>
+</head>
+<body>
+    <div class="calculator">
+        <div class="bmo-face">BMO Calculator</div>
+        <div class="screen" id="screen">0</div>
+        <div class="buttons">
+            <button class="btn clear" onclick="clearScreen()">C</button>
+            <button class="btn operator" onclick="inputOperator('/')">/</button>
+            <button class="btn operator" onclick="inputOperator('*')">×</button>
+            <button class="btn operator" onclick="inputOperator('-')">-</button>
+            
+            <button class="btn number" onclick="inputNumber('7')">7</button>
+            <button class="btn number" onclick="inputNumber('8')">8</button>
+            <button class="btn number" onclick="inputNumber('9')">9</button>
+            <button class="btn operator" onclick="inputOperator('+')">+</button>
+            
+            <button class="btn number" onclick="inputNumber('4')">4</button>
+            <button class="btn number" onclick="inputNumber('5')">5</button>
+            <button class="btn number" onclick="inputNumber('6')">6</button>
+            <button class="btn number" onclick="inputNumber('0')" style="grid-row: span 2;">0</button>
+            
+            <button class="btn number" onclick="inputNumber('1')">1</button>
+            <button class="btn number" onclick="inputNumber('2')">2</button>
+            <button class="btn number" onclick="inputNumber('3')">3</button>
+            
+            <button class="btn number" onclick="inputNumber('.')">.</button>
+            <button class="btn equals" onclick="calculate()">=</button>
+        </div>
+    </div>
+
+    <script>
+        let currentInput = '0';
+        let previousInput = '';
+        let operator = '';
+        let shouldResetScreen = false;
+
+        function playClickSound() {
+            const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            const oscillator = audioContext.createOscillator();
+            const gainNode = audioContext.createGain();
+            
+            oscillator.connect(gainNode);
+            gainNode.connect(audioContext.destination);
+            
+            oscillator.frequency.setValueAtTime(800, audioContext.currentTime);
+            oscillator.frequency.exponentialRampToValueAtTime(600, audioContext.currentTime + 0.1);
+            
+            gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.1);
+            
+            oscillator.start(audioContext.currentTime);
+            oscillator.stop(audioContext.currentTime + 0.1);
+        }
+
+        function updateScreen() {
+            document.getElementById('screen').textContent = currentInput;
+        }
+
+        function inputNumber(num) {
+            playClickSound();
+            
+            if (shouldResetScreen) {
+                currentInput = '';
+                shouldResetScreen = false;
+            }
+            
+            if (currentInput === '0' && num !== '.') {
+                currentInput = num;
+            } else {
+                currentInput += num;
+            }
+            updateScreen();
+        }
+
+        function inputOperator(op) {
+            playClickSound();
+            
+            if (previousInput && currentInput && operator) {
+                calculate();
+            }
+            
+            previousInput = currentInput;
+            operator = op;
+            shouldResetScreen = true;
+        }
+
+        function calculate() {
+            playClickSound();
+            
+            if (!previousInput || !currentInput || !operator) return;
+            
+            const prev = parseFloat(previousInput);
+            const current = parseFloat(currentInput);
+            let result;
+            
+            switch (operator) {
+                case '+': result = prev + current; break;
+                case '-': result = prev - current; break;
+                case '*': result = prev * current; break;
+                case '/': result = prev / current; break;
+                default: return;
+            }
+            
+            currentInput = result.toString();
+            previousInput = '';
+            operator = '';
+            shouldResetScreen = true;
+            updateScreen();
+        }
+
+        function clearScreen() {
+            playClickSound();
+            
+            currentInput = '0';
+            previousInput = '';
+            operator = '';
+            shouldResetScreen = false;
+            updateScreen();
+        }
+    </script>
+</body>
+</html>

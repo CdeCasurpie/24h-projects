@@ -1,0 +1,591 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>24h Self-Destruct Todo</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        body {
+            min-height: 100vh;
+            background: #000;
+            font-family: 'Courier New', monospace;
+            padding: 20px;
+            color: #fff;
+        }
+
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background: #222;
+            border: 3px solid #fff;
+            border-radius: 5px;
+            box-shadow: 0 0 20px #ff0000;
+            padding: 30px;
+            position: relative;
+        }
+
+        .container::before {
+            content: '';
+            position: absolute;
+            top: -3px;
+            left: -3px;
+            right: -3px;
+            bottom: -3px;
+            background: linear-gradient(45deg, #ff0000, #fff, #ff0000, #fff);
+            background-size: 20px 20px;
+            animation: borderMove 2s linear infinite;
+            z-index: -1;
+            border-radius: 5px;
+        }
+
+        @keyframes borderMove {
+            0% { background-position: 0 0; }
+            100% { background-position: 20px 20px; }
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .title {
+            font-size: 2em;
+            margin-bottom: 20px;
+            color: #fff;
+            text-shadow: 2px 2px 0px #000;
+        }
+
+        .timer-display {
+            font-size: 2.5em;
+            font-weight: bold;
+            color: #ff3030;
+            background: #000;
+            padding: 20px;
+            border: 2px solid #ff3030;
+            font-family: 'Courier New', monospace;
+            letter-spacing: 3px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .timer-display::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent);
+            animation: scanline 3s linear infinite;
+        }
+
+        @keyframes scanline {
+            0% { left: -100%; }
+            100% { left: 100%; }
+        }
+
+        .timer-warning {
+            animation: warningBlink 0.5s linear infinite;
+        }
+
+        @keyframes warningBlink {
+            0%, 50% { background: #000; color: #ff3030; }
+            51%, 100% { background: #ff3030; color: #000; }
+        }
+
+        .input-section {
+            display: flex;
+            margin-bottom: 30px;
+            gap: 10px;
+        }
+
+        .todo-input {
+            flex: 1;
+            padding: 15px;
+            border: 2px solid #fff;
+            border-radius: 3px;
+            background: #000;
+            color: #fff;
+            font-size: 16px;
+            outline: none;
+            font-family: 'Courier New', monospace;
+            transition: all 0.3s ease;
+        }
+
+        .todo-input:focus {
+            border-color: #fff;
+            box-shadow: 0 0 10px #fff;
+        }
+
+        .add-btn {
+            padding: 15px 25px;
+            background: #fff;
+            border: 2px solid #fff;
+            border-radius: 3px;
+            color: #000;
+            font-weight: bold;
+            cursor: pointer;
+            font-family: 'Courier New', monospace;
+            text-transform: uppercase;
+            transition: all 0.2s ease;
+            position: relative;
+        }
+
+        .add-btn:hover {
+            background: #ccc;
+            border-color: #ccc;
+            color: #000;
+            transform: scale(1.05);
+        }
+
+        .add-btn:active {
+            transform: scale(0.95);
+        }
+
+        .todo-list {
+            max-height: 400px;
+            overflow-y: auto;
+        }
+
+        .todo-item {
+            background: #333;
+            margin-bottom: 10px;
+            padding: 15px;
+            border: 1px solid #fff;
+            border-radius: 3px;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            position: relative;
+            animation: slideInFromLeft 0.5s ease;
+        }
+
+        @keyframes slideInFromLeft {
+            from { transform: translateX(-100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+
+        .todo-item::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            border: 1px solid #fff;
+            border-radius: 3px;
+            opacity: 0;
+            animation: itemPulse 3s ease-in-out infinite;
+            pointer-events: none;
+        }
+
+        @keyframes itemPulse {
+            0%, 100% { opacity: 0; transform: scale(1); }
+            50% { opacity: 0.3; transform: scale(1.02); }
+        }
+
+        .todo-item.exploding {
+            animation: explode 0.6s ease-out forwards;
+        }
+
+        @keyframes explode {
+            0% { transform: scale(1) rotate(0deg); opacity: 1; }
+            50% { transform: scale(1.2) rotate(5deg); }
+            100% { 
+                transform: scale(0) rotate(180deg); 
+                opacity: 0;
+                background: #ff0000;
+                border-color: #ff0000;
+            }
+        }
+
+        .todo-text {
+            flex: 1;
+            color: #fff;
+            font-size: 16px;
+            font-family: 'Courier New', monospace;
+        }
+
+        .complete-btn {
+            background: #fff;
+            border: 1px solid #fff;
+            border-radius: 3px;
+            color: #000;
+            padding: 8px 12px;
+            cursor: pointer;
+            font-size: 12px;
+            font-family: 'Courier New', monospace;
+            text-transform: uppercase;
+            font-weight: bold;
+            transition: all 0.2s ease;
+            position: relative;
+            z-index: 10;
+        }
+
+        .complete-btn:hover {
+            background: #ccc;
+            border-color: #ccc;
+            transform: scale(1.1);
+        }
+
+        .destruction-warning {
+            background: #ff3030;
+            border: 2px solid #fff;
+            padding: 20px;
+            margin-top: 20px;
+            text-align: center;
+            color: #fff;
+            display: none;
+            animation: criticalWarning 1s ease-in-out infinite;
+            font-family: 'Courier New', monospace;
+            text-transform: uppercase;
+            font-weight: bold;
+        }
+
+        @keyframes criticalWarning {
+            0%, 100% { transform: scale(1); box-shadow: 0 0 5px #ff3030; }
+            50% { transform: scale(1.05); box-shadow: 0 0 20px #ff3030; }
+        }
+
+        .config {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: #000;
+            border: 1px solid #fff;
+            border-radius: 3px;
+            padding: 10px;
+            font-size: 12px;
+            color: #fff;
+            font-family: 'Courier New', monospace;
+        }
+
+        .pixel-explosion {
+            position: absolute;
+            width: 4px;
+            height: 4px;
+            background: #ff0000;
+            pointer-events: none;
+            animation: pixelFly 0.8s ease-out forwards;
+        }
+
+        @keyframes pixelFly {
+            0% { opacity: 1; transform: scale(1); }
+            100% { 
+                opacity: 0; 
+                transform: scale(0) translate(var(--dx), var(--dy));
+            }
+        }
+
+        .screen-shake {
+            animation: screenShake 0.5s ease-in-out;
+        }
+
+        @keyframes screenShake {
+            0%, 100% { transform: translateX(0); }
+            10% { transform: translateX(-2px); }
+            20% { transform: translateX(2px); }
+            30% { transform: translateX(-2px); }
+            40% { transform: translateX(2px); }
+            50% { transform: translateX(-1px); }
+            60% { transform: translateX(1px); }
+            70% { transform: translateX(-1px); }
+            80% { transform: translateX(1px); }
+            90% { transform: translateX(0); }
+        }
+
+        /* Scrollbar retro */
+        .todo-list::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        .todo-list::-webkit-scrollbar-track {
+            background: #000;
+            border: 1px solid #fff;
+            border-radius: 3px;
+        }
+
+        .todo-list::-webkit-scrollbar-thumb {
+            background: #fff;
+            border: 1px solid #000;
+            border-radius: 3px;
+        }
+    </style>
+</head>
+<body>
+    <div class="config">
+        SYSTEM STATUS<br>
+        Timer: <span id="configTime">24h</span><br>
+        Tasks: <span id="itemCount">0</span><br>
+        Status: ACTIVE
+    </div>
+
+    <div class="container">
+        <div class="header">
+            <h1 class="title">SELF-DESTRUCT TODO v1.0</h1>
+            <div class="timer-display" id="timerDisplay">24:00:00</div>
+        </div>
+
+        <div class="input-section">
+            <input type="text" class="todo-input" id="todoInput" placeholder="Enter task...">
+            <button class="add-btn" onclick="addTodo()">ADD</button>
+        </div>
+
+        <div class="todo-list" id="todoList"></div>
+
+        <div class="destruction-warning" id="warningDiv">
+            CRITICAL WARNING: SYSTEM WILL SELF-DESTRUCT IN &lt; 1 HOUR
+        </div>
+    </div>
+
+    <script>
+        // Configuración: cambiar TIMER_HOURS para testing (ej: 0.1 = 6 minutos)
+        const TIMER_HOURS = 24;
+        const TIMER_MS = TIMER_HOURS * 60 * 60 * 1000;
+        
+        let todos = [];
+        let startTime;
+        let timerInterval;
+
+        function initializeTimer() {
+            // Verificar si ya existe un timer activo
+            const savedStartTime = localStorage.getItem('todoStartTime');
+            const savedTodos = localStorage.getItem('todoList');
+            
+            if (savedStartTime) {
+                startTime = parseInt(savedStartTime);
+                const elapsed = Date.now() - startTime;
+                
+                // Si ya pasó el tiempo, autodestruir inmediatamente
+                if (elapsed >= TIMER_MS) {
+                    selfDestruct();
+                    return;
+                }
+                
+                // Cargar todos guardados
+                if (savedTodos) {
+                    todos = JSON.parse(savedTodos);
+                    renderAllTodos();
+                    updateItemCount();
+                }
+            } else {
+                // Primera vez - crear nuevo timer
+                startTime = Date.now();
+                localStorage.setItem('todoStartTime', startTime.toString());
+                todos = [];
+                localStorage.setItem('todoList', JSON.stringify(todos));
+            }
+        }
+
+        function saveTodos() {
+            localStorage.setItem('todoList', JSON.stringify(todos));
+        }
+
+        function renderAllTodos() {
+            const list = document.getElementById('todoList');
+            list.innerHTML = '';
+            
+            todos.forEach(todo => {
+                const item = document.createElement('div');
+                item.className = 'todo-item';
+                item.setAttribute('data-id', todo.id);
+                item.innerHTML = `
+                    <span class="todo-text">${todo.text}</span>
+                    <button class="complete-btn" onclick="completeTodo(${todo.id})">COMPLETE</button>
+                `;
+                list.appendChild(item);
+            });
+        }
+
+        function playRetroSound(frequency, duration) {
+            const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            const oscillator = audioContext.createOscillator();
+            const gainNode = audioContext.createGain();
+            
+            oscillator.connect(gainNode);
+            gainNode.connect(audioContext.destination);
+            
+            oscillator.frequency.setValueAtTime(frequency, audioContext.currentTime);
+            gainNode.gain.setValueAtTime(0.1, audioContext.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + duration);
+            
+            oscillator.start(audioContext.currentTime);
+            oscillator.stop(audioContext.currentTime + duration);
+        }
+
+        function createPixelExplosion(element) {
+            const rect = element.getBoundingClientRect();
+            const centerX = rect.left + rect.width / 2;
+            const centerY = rect.top + rect.height / 2;
+            
+            for (let i = 0; i < 12; i++) {
+                const pixel = document.createElement('div');
+                pixel.className = 'pixel-explosion';
+                
+                const angle = (i * 30) * Math.PI / 180;
+                const distance = 50 + Math.random() * 50;
+                const dx = Math.cos(angle) * distance + 'px';
+                const dy = Math.sin(angle) * distance + 'px';
+                
+                pixel.style.left = centerX + 'px';
+                pixel.style.top = centerY + 'px';
+                pixel.style.setProperty('--dx', dx);
+                pixel.style.setProperty('--dy', dy);
+                
+                document.body.appendChild(pixel);
+                
+                setTimeout(() => pixel.remove(), 800);
+            }
+        }
+
+        function updateTimer() {
+            const elapsed = Date.now() - startTime;
+            const remaining = Math.max(0, TIMER_MS - elapsed);
+            
+            if (remaining === 0) {
+                selfDestruct();
+                return;
+            }
+            
+            const hours = Math.floor(remaining / (1000 * 60 * 60));
+            const minutes = Math.floor((remaining % (1000 * 60 * 60)) / (1000 * 60));
+            const seconds = Math.floor((remaining % (1000 * 60)) / 1000);
+            
+            const display = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+            const timerElement = document.getElementById('timerDisplay');
+            timerElement.textContent = display;
+            
+            // Efectos según tiempo restante
+            if (remaining < 60 * 60 * 1000) { // Última hora
+                timerElement.classList.add('timer-warning');
+                document.getElementById('warningDiv').style.display = 'block';
+                
+                if (remaining < 60 * 1000) { // Último minuto
+                    if (seconds % 2 === 0) {
+                        playRetroSound(800, 0.1);
+                        document.body.classList.add('screen-shake');
+                        setTimeout(() => document.body.classList.remove('screen-shake'), 500);
+                    }
+                }
+            }
+        }
+
+        function addTodo() {
+            const input = document.getElementById('todoInput');
+            const text = input.value.trim();
+            
+            if (!text) return;
+            
+            playRetroSound(600, 0.2);
+            
+            const todo = {
+                id: Date.now(),
+                text: text,
+                completed: false
+            };
+            
+            todos.push(todo);
+            input.value = '';
+            
+            // Agregar solo el nuevo elemento sin re-renderizar todo
+            const list = document.getElementById('todoList');
+            const item = document.createElement('div');
+            item.className = 'todo-item';
+            item.setAttribute('data-id', todo.id);
+            item.innerHTML = `
+                <span class="todo-text">${todo.text}</span>
+                <button class="complete-btn" onclick="completeTodo(${todo.id})">COMPLETE</button>
+            `;
+            list.appendChild(item);
+            
+            updateItemCount();
+        }
+
+        function completeTodo(id) {
+            const todoElement = document.querySelector(`[data-id="${id}"]`);
+            
+            playRetroSound(400, 0.3);
+            createPixelExplosion(todoElement);
+            todoElement.classList.add('exploding');
+            
+            setTimeout(() => {
+                todos = todos.filter(todo => todo.id !== id);
+                todoElement.remove();
+                updateItemCount();
+            }, 600);
+        }
+
+        function renderTodos() {
+            const list = document.getElementById('todoList');
+            list.innerHTML = '';
+            
+            todos.forEach(todo => {
+                const item = document.createElement('div');
+                item.className = 'todo-item';
+                item.setAttribute('data-id', todo.id);
+                item.innerHTML = `
+                    <span class="todo-text">${todo.text}</span>
+                    <button class="complete-btn" onclick="completeTodo(${todo.id})">COMPLETE</button>
+                `;
+                list.appendChild(item);
+            });
+        }
+
+        function updateItemCount() {
+            document.getElementById('itemCount').textContent = todos.length;
+        }
+
+        function selfDestruct() {
+            clearInterval(timerInterval);
+            
+            // Sonido de autodestrucción
+            for (let i = 0; i < 5; i++) {
+                setTimeout(() => {
+                    playRetroSound(100 - i * 15, 0.5);
+                    document.body.classList.add('screen-shake');
+                    setTimeout(() => document.body.classList.remove('screen-shake'), 500);
+                }, i * 200);
+            }
+            
+            setTimeout(() => {
+                document.body.innerHTML = `
+                    <div style="display: flex; justify-content: center; align-items: center; height: 100vh; background: #000; color: #ff3030; font-size: 3em; text-align: center; font-family: 'Courier New', monospace;">
+                        <div style="border: 3px solid #ff3030; padding: 40px; animation: finalBlink 0.5s linear infinite;">
+                            <div style="font-size: 1.5em; margin-bottom: 20px;">SYSTEM DESTROYED</div>
+                            <div style="font-size: 0.8em; margin-bottom: 20px;">ALL DATA ELIMINATED</div>
+                            <div style="font-size: 0.3em; margin-top: 20px; color: #888;">
+                                SELF-DESTRUCT SEQUENCE COMPLETED<br>
+                                <button onclick="location.reload()" style="margin-top: 20px; padding: 10px 20px; background: #ff3030; color: #fff; border: 2px solid #fff; font-family: 'Courier New', monospace; cursor: pointer; text-transform: uppercase;">
+                                    RESTART SYSTEM
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    <style>
+                        @keyframes finalBlink {
+                            0%, 50% { opacity: 1; }
+                            51%, 100% { opacity: 0.3; }
+                        }
+                    </style>
+                `;
+            }, 1000);
+        }
+
+        // Event listeners
+        document.getElementById('todoInput').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') addTodo();
+        });
+
+        // Inicialización
+        document.getElementById('configTime').textContent = `${TIMER_HOURS}h`;
+        
+        // Inicializar timer y cargar datos
+        initializeTimer();
+        
+        timerInterval = setInterval(updateTimer, 1000);
+        updateTimer();
+    </script>
+</body>
+</html>

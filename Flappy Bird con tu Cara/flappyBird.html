@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Flappy Face</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        body {
+            margin: 0;
+            overflow: hidden;
+            background: #87CEEB;
+            font-family: Arial, sans-serif;
+        }
+
+        #gameCanvas {
+            display: block;
+            margin: 0 auto;
+            border: 2px solid #333;
+        }
+
+        .score {
+            position: absolute;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 48px;
+            font-weight: bold;
+            color: white;
+            text-shadow: 2px 2px 4px #000;
+            z-index: 10;
+        }
+
+        .start-screen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            color: white;
+            text-align: center;
+            z-index: 20;
+        }
+
+        .title {
+            font-size: 3em;
+            margin-bottom: 20px;
+            color: white;
+        }
+
+        .camera-btn {
+            padding: 20px 40px;
+            font-size: 1.2em;
+            background: #4CAF50;
+            border: none;
+            border-radius: 10px;
+            color: white;
+            cursor: pointer;
+            font-weight: bold;
+            margin: 10px;
+        }
+
+        .camera-btn:hover {
+            background: #45a049;
+        }
+
+        .instructions {
+            margin-top: 20px;
+            font-size: 1em;
+        }
+
+        #videoPreview {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            width: 120px;
+            height: 90px;
+            border: 2px solid white;
+            border-radius: 5px;
+            display: none;
+            z-index: 15;
+        }
+
+        .game-over {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0, 0, 0, 0.9);
+            padding: 40px;
+            border-radius: 10px;
+            text-align: center;
+            color: white;
+            display: none;
+            z-index: 25;
+        }
+
+        .restart-btn {
+            padding: 15px 30px;
+            font-size: 1.2em;
+            background: #4CAF50;
+            border: none;
+            border-radius: 5px;
+            color: white;
+            cursor: pointer;
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="gameCanvas" width="800" height="600"></canvas>
+    <video id="videoPreview" autoplay muted></video>
+    
+    <div class="score" id="score">0</div>
+
+    <div class="start-screen" id="startScreen">
+        <div class="title">Flappy Face</div>
+        <button class="camera-btn" onclick="startCamera()">Activar Cámara</button>
+        <button class="camera-btn" onclick="startWithoutCamera()">Jugar sin Cámara</button>
+        <div class="instructions">
+            Haz clic o presiona ESPACIO para volar
+        </div>
+    </div>
+
+    <div class="game-over" id="gameOver">
+        <h2>Game Over</h2>
+        <p>Puntaje: <span id="finalScore">0</span></p>
+        <button class="restart-btn" onclick="restartGame()">Jugar de Nuevo</button>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const video = document.getElementById('videoPreview');
+        
+        let gameState = 'waiting';
+        let score = 0;
+        let bird = { x: 100, y: 300, velocity: 0, size: 50 };
+        let pipes = [];
+        let hasCamera = false;
+        
+        const GRAVITY = 0.5;
+        const JUMP_FORCE = -8;
+        const PIPE_WIDTH = 80;
+        const PIPE_GAP = 200;
+
+        async function startCamera() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                video.srcObject = stream;
+                video.style.display = 'block';
+                hasCamera = true;
+                startGame();
+            } catch (error) {
+                alert('Error al acceder a la cámara');
+                startWithoutCamera();
+            }
+        }
+
+        function startWithoutCamera() {
+            hasCamera = false;
+            startGame();
+        }
+
+        function startGame() {
+            document.getElementById('startScreen').style.display = 'none';
+            gameState = 'playing';
+            initGame();
+        }
+
+        function initGame() {
+            bird = { x: 100, y: 300, velocity: 0, size: 50 };
+            pipes = [];
+            score = 0;
+            updateScore();
+            createPipe();
+            gameLoop();
+        }
+
+        function createPipe() {
+            const minHeight = 100;
+            const maxHeight = canvas.height - PIPE_GAP - minHeight;
+            const height = Math.random() * (maxHeight - minHeight) + minHeight;
+            
+            pipes.push({
+                x: canvas.width,
+                topHeight: height,
+                bottomY: height + PIPE_GAP,
+                passed: false
+            });
+        }
+
+        function updateBird() {
+            bird.velocity += GRAVITY;
+            bird.y += bird.velocity;
+            
+            if (bird.y < 0) bird.y = 0;
+            if (bird.y > canvas.height - bird.size) {
+                gameOver();
+            }
+        }
+
+        function updatePipes() {
+            pipes.forEach(pipe => {
+                pipe.x -= 3;
+                
+                if (!pipe.passed && pipe.x + PIPE_WIDTH < bird.x) {
+                    pipe.passed = true;
+                    score++;
+                    updateScore();
+                }
+            });
+            
+            pipes = pipes.filter(pipe => pipe.x + PIPE_WIDTH > -50);
+            
+            if (pipes.length === 0 || pipes[pipes.length - 1].x < canvas.width - 300) {
+                createPipe();
+            }
+        }
+
+        function checkCollisions() {
+            pipes.forEach(pipe => {
+                if (bird.x + bird.size > pipe.x && 
+                    bird.x < pipe.x + PIPE_WIDTH && 
+                    bird.y < pipe.topHeight) {
+                    gameOver();
+                }
+                
+                if (bird.x + bird.size > pipe.x && 
+                    bird.x < pipe.x + PIPE_WIDTH && 
+                    bird.y + bird.size > pipe.bottomY) {
+                    gameOver();
+                }
+            });
+        }
+
+        function drawBackground() {
+            ctx.fillStyle = '#87CEEB';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+        }
+
+        function drawBird() {
+            if (hasCamera && video.srcObject) {
+                ctx.save();
+                ctx.beginPath();
+                ctx.arc(bird.x + bird.size/2, bird.y + bird.size/2, bird.size/2, 0, Math.PI * 2);
+                ctx.clip();
+                ctx.drawImage(video, bird.x, bird.y, bird.size, bird.size);
+                ctx.restore();
+                
+                ctx.strokeStyle = '#FFD700';
+                ctx.lineWidth = 3;
+                ctx.beginPath();
+                ctx.arc(bird.x + bird.size/2, bird.y + bird.size/2, bird.size/2, 0, Math.PI * 2);
+                ctx.stroke();
+            } else {
+                ctx.fillStyle = '#FFD700';
+                ctx.fillRect(bird.x, bird.y, bird.size, bird.size);
+                
+                // Ojos simples
+                ctx.fillStyle = 'black';
+                ctx.fillRect(bird.x + 10, bird.y + 10, 8, 8);
+                ctx.fillRect(bird.x + 30, bird.y + 10, 8, 8);
+            }
+        }
+
+        function drawPipes() {
+            pipes.forEach(pipe => {
+                ctx.fillStyle = '#228B22';
+                ctx.fillRect(pipe.x, 0, PIPE_WIDTH, pipe.topHeight);
+                ctx.fillRect(pipe.x, pipe.bottomY, PIPE_WIDTH, canvas.height - pipe.bottomY);
+                
+                ctx.strokeStyle = '#006400';
+                ctx.lineWidth = 2;
+                ctx.strokeRect(pipe.x, 0, PIPE_WIDTH, pipe.topHeight);
+                ctx.strokeRect(pipe.x, pipe.bottomY, PIPE_WIDTH, canvas.height - pipe.bottomY);
+            });
+        }
+
+        function updateScore() {
+            document.getElementById('score').textContent = score;
+        }
+
+        function gameOver() {
+            gameState = 'gameOver';
+            document.getElementById('finalScore').textContent = score;
+            document.getElementById('gameOver').style.display = 'block';
+        }
+
+        function restartGame() {
+            gameState = 'playing';
+            document.getElementById('gameOver').style.display = 'none';
+            initGame();
+        }
+
+        function jump() {
+            if (gameState === 'playing') {
+                bird.velocity = JUMP_FORCE;
+            }
+        }
+
+        function gameLoop() {
+            if (gameState !== 'playing') return;
+            
+            updateBird();
+            updatePipes();
+            checkCollisions();
+            
+            drawBackground();
+            drawPipes();
+            drawBird();
+            
+            requestAnimationFrame(gameLoop);
+        }
+
+        canvas.addEventListener('click', jump);
+        document.addEventListener('keydown', (e) => {
+            if (e.code === 'Space') {
+                e.preventDefault();
+                jump();
+            }
+        });
+    </script>
+</body>
+</html>

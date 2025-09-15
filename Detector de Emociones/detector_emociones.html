@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Detector de Emociones - Analiza tu escritura</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        body {
+            min-height: 100vh;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            overflow-x: hidden;
+            position: relative;
+        }
+
+        .emotion-particle {
+            position: absolute;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            animation: emotionFloat 4s infinite ease-in-out;
+            pointer-events: none;
+        }
+
+        @keyframes emotionFloat {
+            0%, 100% { transform: translateY(0px) scale(1); opacity: 0.7; }
+            50% { transform: translateY(-30px) scale(1.2); opacity: 1; }
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 40px;
+            color: white;
+        }
+
+        .title {
+            font-size: 3em;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+        }
+
+        .subtitle {
+            font-size: 1.2em;
+            opacity: 0.9;
+        }
+
+        .main-content {
+            display: grid;
+            grid-template-columns: 1fr 300px;
+            gap: 30px;
+            align-items: start;
+        }
+
+        .text-area-container {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            padding: 30px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+        }
+
+        .text-input {
+            width: 100%;
+            min-height: 300px;
+            padding: 20px;
+            border: none;
+            border-radius: 15px;
+            background: rgba(255, 255, 255, 0.9);
+            font-size: 16px;
+            font-family: inherit;
+            line-height: 1.6;
+            resize: vertical;
+            outline: none;
+            transition: all 0.3s ease;
+        }
+
+        .text-input:focus {
+            background: white;
+            box-shadow: 0 0 20px rgba(255, 255, 255, 0.3);
+        }
+
+        .emotion-panel {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            padding: 25px;
+            height: fit-content;
+            position: sticky;
+            top: 20px;
+        }
+
+        .current-emotion {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .emotion-display {
+            font-size: 4em;
+            margin-bottom: 10px;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+        }
+
+        .emotion-name {
+            font-size: 1.5em;
+            font-weight: bold;
+            color: white;
+            text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.3);
+        }
+
+        .emotion-confidence {
+            font-size: 1em;
+            opacity: 0.8;
+            color: white;
+            margin-top: 5px;
+        }
+
+        .emotions-list {
+            max-height: 400px;
+            overflow-y: auto;
+        }
+
+        .emotion-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 12px 15px;
+            margin-bottom: 8px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            transition: all 0.3s ease;
+        }
+
+        .emotion-item:hover {
+            background: rgba(255, 255, 255, 0.2);
+            transform: translateX(5px);
+        }
+
+        .emotion-info {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            color: white;
+        }
+
+        .emotion-emoji {
+            font-size: 1.5em;
+        }
+
+        .emotion-bar {
+            width: 80px;
+            height: 8px;
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .emotion-fill {
+            height: 100%;
+            border-radius: 4px;
+            transition: width 0.5s ease;
+        }
+
+        .stats {
+            margin-top: 20px;
+            padding-top: 20px;
+            border-top: 1px solid rgba(255, 255, 255, 0.2);
+            color: white;
+            font-size: 0.9em;
+        }
+
+        .word-count {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 10px;
+        }
+
+        @media (max-width: 768px) {
+            .main-content {
+                grid-template-columns: 1fr;
+            }
+            
+            .emotion-panel {
+                position: static;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1 class="title">🧠 Detector de Emociones</h1>
+            <p class="subtitle">Escribe y descubre qué emociones transmite tu texto en tiempo real</p>
+        </div>
+
+        <div class="main-content">
+            <div class="text-area-container">
+                <textarea 
+                    class="text-input" 
+                    id="textInput"
+                    placeholder="Comienza a escribir aquí y observa cómo se analizan tus emociones en tiempo real...
+
+Por ejemplo:
+- 'Estoy muy feliz porque mañana es mi cumpleaños'
+- 'Me siento triste y desanimado hoy'
+- 'Estoy furioso con esta situación'
+- '¡Qué emocionante aventura me espera!'">
+                </textarea>
+            </div>
+
+            <div class="emotion-panel">
+                <div class="current-emotion">
+                    <div class="emotion-display" id="mainEmoji">😐</div>
+                    <div class="emotion-name" id="mainEmotion">Neutral</div>
+                    <div class="emotion-confidence" id="confidence">0% confianza</div>
+                </div>
+
+                <div class="emotions-list" id="emotionsList"></div>
+
+                <div class="stats">
+                    <div class="word-count">
+                        <span>Palabras:</span>
+                        <span id="wordCount">0</span>
+                    </div>
+                    <div class="word-count">
+                        <span>Palabras analizadas:</span>
+                        <span id="analyzedCount">0</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Configuración de emociones
+        const EMOTIONS = {
+            feliz: { emoji: '😊', color: '#FFD700', keywords: ['feliz', 'alegre', 'contento', 'genial', 'excelente', 'maravilloso', 'fantástico', 'increíble', 'emocionante', 'perfecto'] },
+            triste: { emoji: '😢', color: '#4A90E2', keywords: ['triste', 'deprimido', 'melancólico', 'desanimado', 'decepcionado', 'abatido', 'pesimista', 'desalentado'] },
+            enojado: { emoji: '😠', color: '#FF6B6B', keywords: ['enojado', 'furioso', 'molesto', 'irritado', 'rabioso', 'indignado', 'enfurecido', 'cabreado'] },
+            ansioso: { emoji: '😰', color: '#FF8C00', keywords: ['ansioso', 'nervioso', 'preocupado', 'estresado', 'inquieto', 'tenso', 'agobiado'] },
+            emocionado: { emoji: '🤩', color: '#FF69B4', keywords: ['emocionado', 'entusiasmado', 'eufórico', 'expectante', 'ilusionado', 'motivado'] },
+            cansado: { emoji: '😴', color: '#9B9B9B', keywords: ['cansado', 'agotado', 'exhausto', 'fatigado', 'somnoliento', 'aburrido'] },
+            sorprendido: { emoji: '😲', color: '#32CD32', keywords: ['sorprendido', 'asombrado', 'impactado', 'impresionado', 'atónito'] },
+            confundido: { emoji: '😕', color: '#DDA0DD', keywords: ['confundido', 'perdido', 'desorientado', 'dudoso', 'incierto'] },
+            amoroso: { emoji: '🥰', color: '#FF1493', keywords: ['amor', 'cariño', 'ternura', 'adorable', 'romántico', 'apasionado'] },
+            neutral: { emoji: '😐', color: '#808080', keywords: [] }
+        };
+
+        const STOP_WORDS = new Set([
+            'el', 'la', 'de', 'que', 'y', 'a', 'en', 'un', 'es', 'se', 'no', 'te', 'lo', 'le', 'da', 'su', 'por', 'son', 
+            'con', 'para', 'al', 'del', 'los', 'una', 'su', 'las', 'me', 'le', 'ya', 'o', 'este', 'está', 'hasta', 
+            'hay', 'donde', 'quien', 'desde', 'todo', 'nos', 'durante', 'todos', 'uno', 'les', 'ni', 'contra', 'otros',
+            'pero', 'muy', 'más', 'como', 'también', 'sin', 'sobre', 'ser', 'tiene', 'le', 'ha', 'si', 'porque'
+        ]);
+
+        let emotionScores = {};
+        let particles = [];
+
+        function removeStopWords(text) {
+            return text.toLowerCase()
+                      .replace(/[^\w\s]/g, ' ')
+                      .split(/\s+/)
+                      .filter(word => word.length > 2 && !STOP_WORDS.has(word));
+        }
+
+        function analyzeEmotion(words) {
+            emotionScores = {};
+            
+            // Inicializar puntuaciones
+            Object.keys(EMOTIONS).forEach(emotion => {
+                emotionScores[emotion] = 0;
+            });
+
+            // Analizar cada palabra
+            words.forEach(word => {
+                Object.entries(EMOTIONS).forEach(([emotion, data]) => {
+                    data.keywords.forEach(keyword => {
+                        if (word.includes(keyword) || keyword.includes(word)) {
+                            emotionScores[emotion] += 1;
+                        }
+                    });
+                });
+            });
+
+            // Si no hay emociones detectadas, asignar neutral
+            const totalScore = Object.values(emotionScores).reduce((a, b) => a + b, 0);
+            if (totalScore === 0) {
+                emotionScores.neutral = 1;
+            }
+
+            return emotionScores;
+        }
+
+        function getDominantEmotion() {
+            return Object.entries(emotionScores)
+                         .reduce((a, b) => emotionScores[a[0]] > emotionScores[b[0]] ? a : b);
+        }
+
+        function updateEmotionDisplay() {
+            const [dominantEmotion, score] = getDominantEmotion();
+            const totalScore = Object.values(emotionScores).reduce((a, b) => a + b, 0);
+            const confidence = totalScore > 0 ? Math.round((score / totalScore) * 100) : 0;
+
+            document.getElementById('mainEmoji').textContent = EMOTIONS[dominantEmotion].emoji;
+            document.getElementById('mainEmotion').textContent = dominantEmotion.charAt(0).toUpperCase() + dominantEmotion.slice(1);
+            document.getElementById('confidence').textContent = `${confidence}% confianza`;
+
+            // Cambiar color de fondo según emoción
+            document.body.style.background = `linear-gradient(135deg, ${EMOTIONS[dominantEmotion].color}40, #764ba2)`;
+            
+            createEmotionParticles(dominantEmotion);
+        }
+
+        function updateEmotionsList() {
+            const list = document.getElementById('emotionsList');
+            const totalScore = Object.values(emotionScores).reduce((a, b) => a + b, 0);
+            
+            const sortedEmotions = Object.entries(emotionScores)
+                .filter(([_, score]) => score > 0)
+                .sort(([, a], [, b]) => b - a);
+
+            list.innerHTML = '';
+            
+            sortedEmotions.forEach(([emotion, score]) => {
+                const percentage = totalScore > 0 ? (score / totalScore) * 100 : 0;
+                
+                const item = document.createElement('div');
+                item.className = 'emotion-item';
+                item.innerHTML = `
+                    <div class="emotion-info">
+                        <span class="emotion-emoji">${EMOTIONS[emotion].emoji}</span>
+                        <span>${emotion.charAt(0).toUpperCase() + emotion.slice(1)}</span>
+                    </div>
+                    <div class="emotion-bar">
+                        <div class="emotion-fill" style="width: ${percentage}%; background-color: ${EMOTIONS[emotion].color}"></div>
+                    </div>
+                `;
+                list.appendChild(item);
+            });
+        }
+
+        function createEmotionParticles(emotion) {
+            if (particles.length > 15) return;
+
+            for (let i = 0; i < 3; i++) {
+                const particle = document.createElement('div');
+                particle.className = 'emotion-particle';
+                particle.style.backgroundColor = EMOTIONS[emotion].color;
+                particle.style.left = Math.random() * window.innerWidth + 'px';
+                particle.style.top = window.innerHeight + 'px';
+                particle.style.animationDuration = (Math.random() * 3 + 2) + 's';
+                particle.style.animationDelay = Math.random() * 2 + 's';
+                
+                document.body.appendChild(particle);
+                particles.push(particle);
+                
+                setTimeout(() => {
+                    if (particle.parentNode) {
+                        particle.parentNode.removeChild(particle);
+                        particles = particles.filter(p => p !== particle);
+                    }
+                }, 5000);
+            }
+        }
+
+        function updateStats(text, analyzedWords) {
+            const wordCount = text.trim() ? text.trim().split(/\s+/).length : 0;
+            document.getElementById('wordCount').textContent = wordCount;
+            document.getElementById('analyzedCount').textContent = analyzedWords.length;
+        }
+
+        function processText() {
+            const text = document.getElementById('textInput').value;
+            const words = removeStopWords(text);
+            
+            updateStats(text, words);
+            
+            if (words.length === 0) {
+                emotionScores = { neutral: 1 };
+            } else {
+                analyzeEmotion(words);
+            }
+            
+            updateEmotionDisplay();
+            updateEmotionsList();
+        }
+
+        // Event listeners
+        document.getElementById('textInput').addEventListener('input', processText);
+
+        // Inicialización
+        processText();
+        
+        // Limpiar partículas al redimensionar
+        window.addEventListener('resize', () => {
+            particles.forEach(p => {
+                if (p.parentNode) p.parentNode.removeChild(p);
+            });
+            particles = [];
+        });
+    </script>
+</body>
+</html>
